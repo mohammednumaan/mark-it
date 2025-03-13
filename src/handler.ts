@@ -1,4 +1,7 @@
 import * as fs from "fs/promises";
+import { existsSync } from "fs";
+import { homedir } from "os";
+import path from "path";
 import { Client } from "./service";
 
 export class Handler {
@@ -32,39 +35,48 @@ export class Handler {
                 this.eventEmitter.emit('response', 'Unknown Command.');
         }
     }
+    
+    async writeNote(){
+        try {
+            let fileContent= "";
+            this.input.forEach((line, idx) => {
+                if (idx) fileContent += `${line}\n`;
+            })
+            const folderPath = path.join(homedir(), '/Documents/mark-it/notebooks');
+            await fs.writeFile(folderPath + `/${this.currentFile}.md`, fileContent);
+
+        } catch (err){
+            console.error("Error", err)
+        }
+    }
 
     private readNoteContent(args: string[]){
-        this.input = [];
+        this.input = [];    
         this.currentFile = args[0];
-        this.eventEmitter.emit('switch-mode', "?: Enter Note Content\n");
+        if (this.checkSameFilename(this.currentFile)){
+            console.log("\n<<<<< File With The Same Name Exists. >>>>>");
+            this.eventEmitter.emit('response', 'Mark-It >> Type a command (help to list commands)')
+            return;
+        }
+        
+        this.eventEmitter.emit('switch-mode');
+
+        console.log("\n===== Enter Note Content =====\n")
         this.eventEmitter.on('note-content', (input: string) => {
             const line = input.trim();
             this.input.push(line);
         })
     }
 
-    async writeNote(){
-        let fileContent= "";
-        for (const line of this.input){
-            fileContent += line;
-        }
-        
-        try {
-            await fs.writeFile(this.currentFile, fileContent);
-        } catch (err){
-            console.error("Error")
-        }
+    private checkSameFilename(filename: string){
+        const folderPath = path.join(homedir(), '/Documents/mark-it/notebooks');
+        const filePath = folderPath + `/${filename}.md`;
+        return existsSync(filePath);
     }
 
-    private getNote(args: string[]){
-    }
+    private getNote(args: string[]){}
+    private listNotes(args: string[]){}
+    private updateNote(args: string[]){}
+    private deleteNote(args: string[]){}
 
-    private listNotes(args: string[]){
-    }
-
-    private updateNote(args: string[]){
-    }
-
-    private deleteNote(args: string[]){
-    }
 }
