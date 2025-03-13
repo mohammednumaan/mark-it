@@ -1,5 +1,5 @@
 import * as fs from "fs/promises";
-import { existsSync } from "fs";
+import { existsSync, readdirSync } from "fs";
 import { homedir } from "os";
 import path from "path";
 import { Client } from "./service";
@@ -9,6 +9,7 @@ export class Handler {
     private eventEmitter: Client;
     private input: string[] = [];
     private currentFile: string = "";
+    private folderPath: string = path.join(homedir(), '/Documents/mark-it/notebooks');
 
     constructor(client: Client){
         this.eventEmitter = client;
@@ -23,13 +24,16 @@ export class Handler {
                 this.getNote(args);
                 break; 
             case "list":
-                this.listNotes(args);
+                this.listNotes();
                 break;
             case "update":
                 this.updateNote(args);
                 break;
             case "delete":
                 this.deleteNote(args);
+                break;
+            case "close":
+                this.eventEmitter.emit('exit');
                 break;
             default:
                 this.eventEmitter.emit('response', 'Unknown Command.');
@@ -42,8 +46,7 @@ export class Handler {
             this.input.forEach((line, idx) => {
                 if (idx) fileContent += `${line}\n`;
             })
-            const folderPath = path.join(homedir(), '/Documents/mark-it/notebooks');
-            await fs.writeFile(folderPath + `/${this.currentFile}.md`, fileContent);
+            await fs.writeFile(this.folderPath + `/${this.currentFile}.md`, fileContent);
 
         } catch (err){
             console.error("Error", err)
@@ -53,6 +56,7 @@ export class Handler {
     private readNoteContent(args: string[]){
         this.input = [];    
         this.currentFile = args[0];
+
         if (this.checkSameFilename(this.currentFile)){
             console.log("\n<<<<< File With The Same Name Exists. >>>>>");
             this.eventEmitter.emit('response', 'Mark-It >> Type a command (help to list commands)')
@@ -60,7 +64,6 @@ export class Handler {
         }
         
         this.eventEmitter.emit('switch-mode');
-
         console.log("\n===== Enter Note Content =====\n")
         this.eventEmitter.on('note-content', (input: string) => {
             const line = input.trim();
@@ -69,13 +72,23 @@ export class Handler {
     }
 
     private checkSameFilename(filename: string){
-        const folderPath = path.join(homedir(), '/Documents/mark-it/notebooks');
-        const filePath = folderPath + `/${filename}.md`;
+        const filePath = path.join(this.folderPath + `/${filename}.md`);
         return existsSync(filePath);
     }
 
+    private listNotes(){
+        const filenames = readdirSync(this.folderPath);
+
+        console.log("\n===== All Notebooks =====\n")
+        filenames.forEach((filename, idx) => {
+            console.log(`${idx + 1}: ${filename}`)            
+        })
+        console.log("\n===== End Of Notebook List =====\n")
+        this.eventEmitter.emit('response', 'Mark-It >> Type a command (help to list commands)')
+
+    }
+
     private getNote(args: string[]){}
-    private listNotes(args: string[]){}
     private updateNote(args: string[]){}
     private deleteNote(args: string[]){}
 

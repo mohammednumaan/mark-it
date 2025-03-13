@@ -42,7 +42,7 @@ export class Client extends EventEmitter {
                 if (data === ":exit") {
                     console.log("\n===== End Of Note Content =====\n")
                     this.eventHandler.writeNote();
-                    
+
                     this.switchMode()
                     this.rl.prompt(true);
                 }
@@ -53,7 +53,7 @@ export class Client extends EventEmitter {
     }
 
     private closeReadableStream(){
-        this.rl.on('exit', () => {
+        this.on('exit', () => {
             process.stdout.write("Exiting Mark-it...");
             this.rl.close();
         })
