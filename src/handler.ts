@@ -6,19 +6,20 @@ import { Client } from "./service";
 
 export class Handler {
 
-    private eventEmitter: Client;
+    private client: Client;
     private input: string[] = [];
+
     private currentFile: string = "";
     private folderPath: string = path.join(homedir(), '/Documents/mark-it/notebooks');
 
     constructor(client: Client){
-        this.eventEmitter = client;
+        this.client = client;
     }
 
     commandHandler(cmd: string, args: string[]){
         switch (cmd){
             case "create":
-                this.readNoteContent(args);
+                this.readNoteStream(args);
                 break;
             case "get":
                 this.getNote(args);
@@ -33,10 +34,10 @@ export class Handler {
                 this.deleteNote(args);
                 break;
             case "close":
-                this.eventEmitter.emit('exit');
+                this.client.emit('exit');
                 break;
             default:
-                this.eventEmitter.emit('response', 'Unknown Command.');
+                this.client.emit('response', 'Unknown Command.');
         }
     }
     
@@ -47,33 +48,10 @@ export class Handler {
                 if (idx) fileContent += `${line}\n`;
             })
             await fs.writeFile(this.folderPath + `/${this.currentFile}.md`, fileContent);
-
+            
         } catch (err){
             console.error("Error", err)
         }
-    }
-
-    private readNoteContent(args: string[]){
-        this.input = [];    
-        this.currentFile = args[0];
-
-        if (this.checkSameFilename(this.currentFile)){
-            console.log("\n<<<<< File With The Same Name Exists. >>>>>");
-            this.eventEmitter.emit('response', 'Mark-It >> Type a command (help to list commands)')
-            return;
-        }
-        
-        this.eventEmitter.emit('switch-mode');
-        console.log("\n===== Enter Note Content =====\n")
-        this.eventEmitter.on('note-content', (input: string) => {
-            const line = input.trim();
-            this.input.push(line);
-        })
-    }
-
-    private checkSameFilename(filename: string){
-        const filePath = path.join(this.folderPath + `/${filename}.md`);
-        return existsSync(filePath);
     }
 
     private listNotes(){
@@ -84,12 +62,58 @@ export class Handler {
             console.log(`${idx + 1}: ${filename}`)            
         })
         console.log("\n===== End Of Notebook List =====\n")
-        this.eventEmitter.emit('response', 'Mark-It >> Type a command (help to list commands)')
+        this.client.emit('response', '<< Type a command (help to list commands) >>')
 
     }
 
+    private updateNote(args: string[]){
+        this.currentFile = args[0];
+        this.client.rl.close();
+
+        const filePath = path.join(this.folderPath + `/${this.currentFile}.md`);
+        const editorSpawn = require('child_process').spawn("nano", [filePath], {
+            stdio: 'inherit',
+            detached: true
+        })
+
+        editorSpawn.on('data', function(data: any){
+            return process.stdout.pipe(data);
+        });    
+        
+        editorSpawn.on('close', () => {
+            console.log("\n===== Note Updated =====\n")
+            this.client.initReadableStream();
+            this.client.emit('response', '<< Type a command (help to list commands) >>')
+            
+        })
+    }
+
+
+    private readNoteStream(args: string[]){
+        this.input = [];    
+        this.currentFile = args[0];
+
+        if (this.checkSameFilename(this.currentFile)){
+            console.log("\n<<<<< File With The Same Name Exists. >>>>>");
+            this.client.emit('response', '<< Type a command (help to list commands) >>')
+            return;
+        }
+        
+        this.client.emit('switch-mode');
+        console.log("\n===== Enter Note Content =====\n")
+        this.client.on('note-content', (input: string) => {
+            const line = input.trim();
+            this.input.push(line);
+        })
+    }
+
+    private checkSameFilename(filename: string){
+        const filePath = path.join(this.folderPath + `/${filename}.md`);
+        return existsSync(filePath);
+    }
+
+    
     private getNote(args: string[]){}
-    private updateNote(args: string[]){}
     private deleteNote(args: string[]){}
 
 }

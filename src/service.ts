@@ -5,15 +5,11 @@ import { homedir } from "os";
 import path from "path";
 import { existsSync, mkdirSync } from "fs";
 
-type inputMode = 'command' | 'note-content';
+type inputMode = 'command' | 'note-content' | 'update-note';
 
 export class Client extends EventEmitter {
 
-    private readonly rl = readline.createInterface({
-        input: process.stdin,
-        output: process.stdout,
-        prompt: "Mark-It >> "
-    })
+    rl!: readline.Interface;
     private inputMode: inputMode = 'command';
     private readonly eventHandler = new Handler(this);
     
@@ -26,11 +22,17 @@ export class Client extends EventEmitter {
         this.createFolder();
 
         process.nextTick(() => {
-            this.emit('response', 'Mark-It >> Type a command (help to list commands)')
+            this.emit('response', '<< Type a command (help to list commands) >>')
         })
     }
 
-    private initReadableStream(){
+    initReadableStream(){
+        this.rl = readline.createInterface({
+            input: process.stdin,
+            output: process.stdout,
+            prompt: "Mark-It >> "
+        })
+        
         this.rl.on('line', (input) => {
             if (this.inputMode === 'command'){
                 const [cmd, ...args] = input.trim().split(' ');
@@ -47,8 +49,7 @@ export class Client extends EventEmitter {
                     this.rl.prompt(true);
                 }
                 else this.emit('note-content', data)
-            }
-
+            } 
         })
     }
 
@@ -86,4 +87,5 @@ export class Client extends EventEmitter {
             console.error(err);
         }
     }
+
 }

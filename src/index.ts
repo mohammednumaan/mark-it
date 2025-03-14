@@ -8,4 +8,5 @@ import { Client } from "./service";
 const client = new Client();
 client.on('response', (response) => {
     process.stdout.write(`\n${response}\n`);
+    client.rl.prompt(true);
 })
