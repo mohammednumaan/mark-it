@@ -30,7 +30,7 @@ export class Client extends EventEmitter {
         this.rl = readline.createInterface({
             input: process.stdin,
             output: process.stdout,
-            prompt: "Mark-It >> "
+            prompt: "[Mark-It] >> "
         })
         
         this.rl.on('line', (input) => {
@@ -72,11 +72,10 @@ export class Client extends EventEmitter {
 
     private switchMode(){
         this.inputMode = (this.inputMode === 'command') ? 'note-content' : 'command'; 
-        this.rl.setPrompt(this.inputMode === "note-content" ? "" : "Mark-It >> ");
+        this.rl.setPrompt(this.inputMode === "note-content" ? "" : "[Mark-It] >> ");
     }
 
     private createFolder(){
-
         try{
             const homeDir = homedir();
             const folderPath = path.join(homeDir, '/Documents/mark-it/notebooks');

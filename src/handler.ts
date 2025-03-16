@@ -1,8 +1,8 @@
-import * as fs from "fs/promises";
-import { existsSync, readdirSync } from "fs";
-import { homedir } from "os";
 import path from "path";
+import * as fs from "fs/promises";
 import { Client } from "./service";
+import { homedir } from "os";
+import { existsSync, readdirSync, readFileSync, unlinkSync } from "fs";
 
 export class Handler {
 
@@ -22,7 +22,7 @@ export class Handler {
                 this.readNoteStream(args);
                 break;
             case "get":
-                this.getNote(args);
+                this.getNote(args[0]);
                 break; 
             case "list":
                 this.listNotes();
@@ -31,13 +31,20 @@ export class Handler {
                 this.updateNote(args);
                 break;
             case "delete":
-                this.deleteNote(args);
+                this.deleteNote(args[0]);
                 break;
             case "close":
                 this.client.emit('exit');
                 break;
+            case "help":
+                this.helpScreen();
+                break;
+            case "clear":
+                console.clear();
+                this.emitResponseEvent();
+                break;
             default:
-                this.client.emit('response', 'Unknown Command.');
+                this.client.emit('response', '<< Unknown Command (type help to list available commands) >>\n');
         }
     }
     
@@ -62,13 +69,18 @@ export class Handler {
             console.log(`${idx + 1}: ${filename}`)            
         })
         console.log("\n===== End Of Notebook List =====\n")
-        this.client.emit('response', '<< Type a command (help to list commands) >>')
+        this.emitResponseEvent();
 
     }
 
     private updateNote(args: string[]){
         this.currentFile = args[0];
         this.client.rl.close();
+
+        if (!this.currentFile){
+            console.log("\n<<<<< get command requires filename as argument >>>>>");
+            return;  
+        }
 
         const filePath = path.join(this.folderPath + `/${this.currentFile}.md`);
         const editorSpawn = require('child_process').spawn("nano", [filePath], {
@@ -83,8 +95,7 @@ export class Handler {
         editorSpawn.on('close', () => {
             console.log("\n===== Note Updated =====\n")
             this.client.initReadableStream();
-            this.client.emit('response', '<< Type a command (help to list commands) >>')
-            
+            this.emitResponseEvent();
         })
     }
 
@@ -93,9 +104,15 @@ export class Handler {
         this.input = [];    
         this.currentFile = args[0];
 
-        if (this.checkSameFilename(this.currentFile)){
+        if (!this.currentFile){
+            console.log("\n<<<<< create command requires filename as argument >>>>>");
+            this.emitResponseEvent();
+            return;  
+        }
+
+        if (this.checkFileExists(this.currentFile)){
             console.log("\n<<<<< File With The Same Name Exists. >>>>>");
-            this.client.emit('response', '<< Type a command (help to list commands) >>')
+            this.emitResponseEvent();
             return;
         }
         
@@ -107,13 +124,77 @@ export class Handler {
         })
     }
 
-    private checkSameFilename(filename: string){
+    private checkFileExists(filename: string){
         const filePath = path.join(this.folderPath + `/${filename}.md`);
         return existsSync(filePath);
     }
 
     
-    private getNote(args: string[]){}
-    private deleteNote(args: string[]){}
+    private getNote(filename: string) {
+        if (!filename){
+            console.log("\n<<<<< get command requires filename as argument >>>>>");
+            this.emitResponseEvent();
+            return;  
+        }
+
+        const filePath = path.join(this.folderPath, `${filename}.md`);
+        if (this.checkFileExists(filename)) {
+          try {
+            const data = readFileSync(filePath, 'utf8');
+            console.log('\n===== Note Content =====\n')
+            console.log(data);
+            console.log('\n===== End Of Note Content =====\n')
+
+          } catch (err) {
+            console.error(err);
+          }
+        } else {
+          console.log("File does not exist. Please use 'list' to view available files.");
+        }
+        this.emitResponseEvent();  
+    }
+
+    private deleteNote(filename: string){
+        if (!filename){
+            console.log("\n<<<<< delete command requires filename as argument >>>>>");
+            this.emitResponseEvent();
+            return;  
+        }
+
+        const filePath = path.join(this.folderPath, `${filename}.md`);
+        if (this.checkFileExists(filename)){
+            try {
+                unlinkSync(filePath);
+                console.log(`\n===== File [${filename}.md] Deleted Successfully =====`);
+              } catch (err) {
+                console.error(err);
+              }
+        } else{
+          console.log("\nFile does not exist. Please use 'list' to view available files.");
+        }
+        this.emitResponseEvent();
+    }
+
+    private helpScreen(){
+        let responseString: string = "----- Welcome To Mark-It: Commands List -----\n";
+        const commands: {[command: string]: string} = {
+            add: 'create [filename] - Creates a new md note', 
+            delete: 'delete [filename] - Deletes a md note', 
+            update: 'update [filename] - Updates a md note',
+            list: 'list - Lists all available md notes',
+            close: 'close - Closes mark-it' ,
+            help: 'help - Displays supports commands',
+            clear: 'clear - Clears the screen'
+        }
+        for (let command in commands){
+            responseString += `\n - ${command}: ${commands[command]}\n`;
+        }
+        console.log(`\n${responseString}`)
+        this.emitResponseEvent();
+    }
+
+    private emitResponseEvent(){
+        this.client.emit('response', '-- type help to list commands --');   
+    }
 
 }
