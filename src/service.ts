@@ -26,13 +26,13 @@ export class Client extends EventEmitter {
         })
     }
 
-    initReadableStream(){
+    initReadableStream(){ 
         this.rl = readline.createInterface({
             input: process.stdin,
             output: process.stdout,
             prompt: "[Mark-It] >> "
         })
-        
+
         this.rl.on('line', (input) => {
             if (this.inputMode === 'command'){
                 const [cmd, ...args] = input.trim().split(' ');
